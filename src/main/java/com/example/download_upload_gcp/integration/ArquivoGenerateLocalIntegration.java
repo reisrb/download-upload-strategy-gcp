@@ -3,21 +3,6 @@ package com.example.download_upload_gcp.integration;
 import com.example.download_upload_gcp.domain.Arquivo;
 import com.example.download_upload_gcp.domain.ArquivoIntegration;
 import com.example.download_upload_gcp.integration.dto.ArquivoDetalhesDownloadDto;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FilenameUtils;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.Profile;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
-
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -35,6 +20,20 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @Service
@@ -66,14 +65,15 @@ public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
         final File caminhoArquivo = diretorioBase.resolve(nomeArquivoFormatado).toFile();
 
         try (final OutputStream outputStream = new CipherOutputStream(
-                new GZIPOutputStream(new FileOutputStream(caminhoArquivo)),
-                ArquivoCriptografia.getCipher(Cipher.ENCRYPT_MODE, this.fileSecretKeySpec)
+              new GZIPOutputStream(new FileOutputStream(caminhoArquivo)),
+              ArquivoCriptografia.getCipher(Cipher.ENCRYPT_MODE, this.fileSecretKeySpec)
         )) {
             arquivo.getInputStream().transferTo(outputStream);
             outputStream.flush();
         } catch (IOException e) {
             log.error("Não foi possível criar o arquivo no diretório: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Não foi possível criar o arquivo no diretório: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                  "Não foi possível criar o arquivo no diretório: " + e.getMessage());
         }
 
         return nomeArquivoFormatado;
@@ -84,25 +84,28 @@ public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
         try {
 
             if (!existeArquivo(arquivo.getNomeArquivoBlob())) {
-                log.info("Arquivo recuperado do diretório temporário não existe. Gerando arquivo em branco.");
+                log.info(
+                      "Arquivo recuperado do diretório temporário não existe. Gerando arquivo em branco.");
                 return null;
             }
 
             // Arquivo descriptografado retornado da temporária
             CipherInputStream cipherInputStream = new CipherInputStream(new GZIPInputStream(
-                    new FileInputStream(this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toFile())
+                  new FileInputStream(
+                        this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toFile())
             ), ArquivoCriptografia.getCipher(Cipher.DECRYPT_MODE, this.fileSecretKeySpec));
 
             return ArquivoDetalhesDownloadDto.builder()
-                    .categoria(arquivo.getDescricao())
-                    .nomeArquivoOriginal(arquivo.getNomeOriginal())
-                    .nomeArquivoBlob(arquivo.getNomeArquivoBlob())
-                    .extensaoArquivo(arquivo.getExtensao())
-                    .arquivoInputStream(cipherInputStream)
-                    .build();
+                  .categoria(arquivo.getDescricao())
+                  .nomeArquivoOriginal(arquivo.getNomeOriginal())
+                  .nomeArquivoBlob(arquivo.getNomeArquivoBlob())
+                  .extensaoArquivo(arquivo.getExtensao())
+                  .arquivoInputStream(cipherInputStream)
+                  .build();
         } catch (IOException e) {
             log.error("Não foi possível recuperar o arquivo no diretório: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Não foi possível recuperar o arquivo no diretório: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                  "Não foi possível recuperar o arquivo no diretório: " + e.getMessage());
         }
     }
 
@@ -138,7 +141,7 @@ public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
 
         try {
             File zipTemp = this.diretorioBase.resolve(
-                    String.format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
+                  String.format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
 
             ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(zipTemp));
 

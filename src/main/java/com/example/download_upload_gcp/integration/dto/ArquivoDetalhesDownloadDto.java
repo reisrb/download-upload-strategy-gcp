@@ -1,9 +1,8 @@
 package com.example.download_upload_gcp.integration.dto;
 
+import java.io.InputStream;
 import lombok.Builder;
 import lombok.Data;
-
-import java.io.InputStream;
 
 @Data
 @Builder
