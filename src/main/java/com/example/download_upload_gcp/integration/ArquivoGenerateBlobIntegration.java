@@ -1,5 +1,6 @@
 package com.example.download_upload_gcp.integration;
 
+import com.example.download_upload_gcp.config.CloudConfigurationProperties;
 import com.example.download_upload_gcp.domain.Arquivo;
 import com.example.download_upload_gcp.domain.ArquivoIntegration;
 import com.example.download_upload_gcp.integration.dto.ArquivoDetalhesDownloadDto;
@@ -8,7 +9,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -22,12 +23,15 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import javax.crypto.spec.SecretKeySpec;
+
+import com.google.cloud.storage.StorageOptions;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -40,35 +44,32 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Validated
 @Profile({"dev", "hml", "prd"})
-@Qualifier("blobIntegration")
 public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
 
-    private Path diretorioBase;
+    private Path diretorioBase = Files.createTempDirectory("anexos_");
 
-    @Value("${cloud.bucket}")
     private String bucketName;
 
     private Storage storage;
 
     private final SecretKeySpec fileSecretKeySpec;
 
-    public ArquivoGenerateBlobIntegration(SecretKeySpec fileSecretKeySpec) {
+    public ArquivoGenerateBlobIntegration(SecretKeySpec fileSecretKeySpec, CloudConfigurationProperties properties) throws IOException {
         this.fileSecretKeySpec = fileSecretKeySpec;
+
+        this.bucketName = properties.getBucket();
 
         try {
 
             this.storage = StorageOptions
-                  .newBuilder()
-                  .setCredentials(ServiceAccountCredentials.fromStream(
-                        new FileInputStream(System.getenv(
-                              "STORAGE_GCP_JSON_KEY")))) // arquivo json da key do google
-                  .build()
-                  .getService();
-
-            this.diretorioBase = Files.createTempDirectory("anexos_");
+                    .newBuilder()
+                    .setCredentials(ServiceAccountCredentials.fromStream(
+                            new FileInputStream(properties.getJsonKey()))) // arquivo json da key do google
+                    .build()
+                    .getService();
 
             log.info(String.format("Using %s", this.diretorioBase.toString()));
-            log.info(String.format("Using blob storage: %s", bucketName));
+            log.info(String.format("Using blob storage: %s", properties.getBucket()));
         } catch (IOException e) {
             log.error("Não foi possível criar o diretório na pasta temporária: {}", e.getMessage());
         }
@@ -86,6 +87,9 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
             arquivo.getInputStream().transferTo(outputStream);
             outputStream.flush();
 
+            // upload to dir
+
+
             BlobId blobId = BlobId.of(bucketName, nomeArquivoFormatado);
             BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
 
@@ -95,9 +99,9 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
                 precondicao = Storage.BlobWriteOption.doesNotExist();
             } else {
                 precondicao = Storage
-                      .BlobWriteOption
-                      .generationMatch(storage.get(bucketName, nomeArquivoFormatado)
-                            .getGeneration());
+                        .BlobWriteOption
+                        .generationMatch(storage.get(bucketName, nomeArquivoFormatado)
+                                .getGeneration());
             }
 
             storage.createFrom(blobInfo, caminhoArquivo.toPath(), precondicao);
@@ -110,8 +114,8 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         } catch (IOException e) {
             log.error("Não foi possível criar o arquivo no diretório: {}", e.getMessage());
             throw new ResponseStatusException(
-                  HttpStatus.UNPROCESSABLE_ENTITY,
-                  "Não foi possível criar o arquivo no diretório: " + e.getMessage());
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Não foi possível criar o arquivo no diretório: " + e.getMessage());
         }
     }
 
@@ -127,24 +131,24 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
             }
 
             blob.downloadTo(
-                  this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toAbsolutePath());
+                    this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toAbsolutePath());
             FileInputStream fileInputStream =
-                  new FileInputStream(
-                        this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toFile());
+                    new FileInputStream(
+                            this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toFile());
             removerArquivoTemporario(arquivo.getNomeArquivoBlob());
 
             return ArquivoDetalhesDownloadDto.builder()
-                  .categoria(arquivo.getDescricao())
-                  .nomeArquivoOriginal(arquivo.getNomeOriginal())
-                  .nomeArquivoBlob(arquivo.getNomeArquivoBlob())
-                  .extensaoArquivo(arquivo.getExtensao())
-                  .arquivoInputStream(fileInputStream)
-                  .build();
+                    .categoria(arquivo.getDescricao())
+                    .nomeArquivoOriginal(arquivo.getNomeOriginal())
+                    .nomeArquivoBlob(arquivo.getNomeArquivoBlob())
+                    .extensaoArquivo(arquivo.getExtensao())
+                    .arquivoInputStream(fileInputStream)
+                    .build();
         } catch (IOException e) {
             log.error("Não foi possível recuperar o arquivo baixado do blob: {}", e.getMessage());
             throw new ResponseStatusException(
-                  HttpStatus.UNPROCESSABLE_ENTITY,
-                  "Não foi possível recuperar o arquivo baixado do blob: " + e.getMessage());
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Não foi possível recuperar o arquivo baixado do blob: " + e.getMessage());
         }
     }
 
@@ -162,11 +166,7 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         String nomeArquivoSemExtensao = FilenameUtils.removeExtension(nomeArquivo);
         String extensaoArquivo = FilenameUtils.getExtension(nomeArquivo);
 
-        ZoneId zoneSaoPaulo = ZoneId.of("America/Sao_Paulo");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
-        String dataFormatada = LocalDate.now(zoneSaoPaulo).format(formatter);
-
-        return String.format("%s_%s.%s", nomeArquivoSemExtensao, dataFormatada, extensaoArquivo);
+        return String.format("%s_%s.%s", nomeArquivoSemExtensao, UUID.randomUUID(), extensaoArquivo);
     }
 
     @Override
@@ -179,7 +179,7 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
 
         try {
             File zipTemp = this.diretorioBase.resolve(
-                  String.format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
+                    String.format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
 
             ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(zipTemp));
 

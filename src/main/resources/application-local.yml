@@ -1,5 +1,1 @@
-spring:
-  cloud:
-    gcp:
-      storage:
-        enabled: false
+

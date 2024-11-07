@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -39,8 +40,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Validated
 @Profile({"local", "docker", "test"})
-@Qualifier("localIntegration")
-@Primary
 public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
 
     private Path diretorioBase;
@@ -54,13 +53,12 @@ public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
             this.diretorioBase = Files.createTempDirectory("anexos_");
             log.info("Using {}", this.diretorioBase.toString());
         } catch (IOException e) {
-            log.error("Não foi possível criar o diretório na pasta temporária: {}", e.getMessage());
+            log.error("Não foi possível criar o diretório ou já existe: {}", e.getMessage());
         }
     }
 
     @Override
     public String salvar(MultipartFile arquivo) {
-        String extensaoArquivo = FilenameUtils.getExtension(arquivo.getOriginalFilename());
         final String nomeArquivoFormatado = renomearArquivo(arquivo.getOriginalFilename());
         final File caminhoArquivo = diretorioBase.resolve(nomeArquivoFormatado).toFile();
 
@@ -119,11 +117,7 @@ public class ArquivoGenerateLocalIntegration implements ArquivoIntegration {
         String nomeArquivoSemExtensao = FilenameUtils.removeExtension(nomeArquivo);
         String extensaoArquivo = FilenameUtils.getExtension(nomeArquivo);
 
-        ZoneId zoneSaoPaulo = ZoneId.of("America/Sao_Paulo");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
-        String dataFormatada = LocalDate.now(zoneSaoPaulo).format(formatter);
-
-        return String.format("%s_%s.%s", nomeArquivoSemExtensao, dataFormatada, extensaoArquivo);
+        return String.format("%s_%s.%s", nomeArquivoSemExtensao, UUID.randomUUID(), extensaoArquivo);
     }
 
     @Override
