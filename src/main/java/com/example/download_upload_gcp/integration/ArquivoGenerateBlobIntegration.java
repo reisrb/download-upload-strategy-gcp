@@ -1,44 +1,41 @@
 package com.example.download_upload_gcp.integration;
 
-import com.example.download_upload_gcp.config.CloudConfigurationProperties;
+import com.example.download_upload_gcp.config.GcpCloudConfigurationProperties;
 import com.example.download_upload_gcp.domain.Arquivo;
 import com.example.download_upload_gcp.domain.ArquivoIntegration;
 import com.example.download_upload_gcp.integration.dto.ArquivoDetalhesDownloadDto;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-import javax.crypto.spec.SecretKeySpec;
-
 import com.google.cloud.storage.StorageOptions;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Slf4j
 @Service
@@ -54,17 +51,17 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
 
     private final SecretKeySpec fileSecretKeySpec;
 
-    public ArquivoGenerateBlobIntegration(SecretKeySpec fileSecretKeySpec, CloudConfigurationProperties properties) throws IOException {
+    public ArquivoGenerateBlobIntegration(SecretKeySpec fileSecretKeySpec, GcpCloudConfigurationProperties properties) throws IOException {
         this.fileSecretKeySpec = fileSecretKeySpec;
 
         this.bucketName = properties.getBucket();
 
         try {
 
-            this.storage = StorageOptions
-                    .newBuilder()
-                    .setCredentials(ServiceAccountCredentials.fromStream(
-                            new FileInputStream(properties.getJsonKey()))) // arquivo json da key do google
+            // Configura o cliente do Google Cloud Storage com as credenciais carregadas
+            this.storage = StorageOptions.newBuilder()
+                    .setCredentials(properties.getGoogleCredentials())
+                    .setProjectId(properties.getCredentials().getProjectId())
                     .build()
                     .getService();
 

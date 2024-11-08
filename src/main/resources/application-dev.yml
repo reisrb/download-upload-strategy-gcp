@@ -1,3 +1,13 @@
-cloud:
-  jsonKey: "${STORAGE_GCP_JSON_KEY:keyfake}"
-  bucket: "${STORAGE_GCP_BUCKET_NAME:bucketfake}"
+gcp:
+  bucket: ${GCP_BUCKET_NAME:bucketfake}
+  credentials:
+    type: ${GCP_TYPE:service_account}
+    projectId: ${GCP_PROJECT_ID:projectFake}
+    clientEmail: ${GCP_CLIENT_EMAIL:clientFake}
+    clientId: ${GCP_CLIENT_ID:clientFake}
+    privateKey: ${GCP_PRIVATE_KEY:privateFake}
+    privateKeyId: ${GCP_PRIVATE_KEY_ID:privateFake}
+    tokenUri: ${GCP_TOKEN_URI:https://oauth2.googleapis.com/token}
+    authUri: ${GCP_AUTH_URI:https://accounts.google.com/o/oauth2/auth}
+    authProviderX509CertUrl: ${GCP_AUTH_PROVIDER_X509_CERT_URL:https://www.googleapis.com/oauth2/v1/certs}
+    clientCertUrl: ${GCP_CLIENT_CERT_URL:https://www.googleapis.com/robot/v1/metadata/x509/${GCP_CLIENT_EMAIL:clientFake}
