@@ -1,3 +1,16 @@
 cloud:
-  jsonKey: "${STORAGE_GCP_JSON_KEY:keyfake}"
-  bucket: "${STORAGE_GCP_BUCKET_NAME:bucketfake}"
+  bucket: "${CLOUD_BUCKET_NAME:bucketfake}"
+  jsonKey: >-
+    {
+      "type": "${CLOUD_CLIENT_TYPE}",
+      "project_id": "${CLOUD_PROJECT_ID}",
+      "private_key_id": "${CLOUD_PRIVATE_KEY_ID}",
+      "private_key": "${CLOUD_PRIVATE_KEY}",
+      "client_email": "${CLOUD_CLIENT_EMAIL}",
+      "client_id": "${CLOUD_CLIENT_ID}",
+      "auth_uri": "${CLOUD_AUTH_URI}",
+      "token_uri": "${CLOUD_TOKEN_URI}",
+      "auth_provider_x509_cert_url": "${CLOUD_AUTH_PROVIDER_X509_CERT_URL}",
+      "client_x509_cert_url": "${CLOUD_CLIENT_X509_CERT_URL}",
+      "universe_domain": "${CLOUD_UNIVERSE_DOMAIN}"
+    }

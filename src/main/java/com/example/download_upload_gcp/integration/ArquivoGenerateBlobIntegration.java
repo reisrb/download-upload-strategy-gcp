@@ -5,40 +5,28 @@ import com.example.download_upload_gcp.domain.Arquivo;
 import com.example.download_upload_gcp.domain.ArquivoIntegration;
 import com.example.download_upload_gcp.integration.dto.ArquivoDetalhesDownloadDto;
 import com.google.auth.oauth2.ServiceAccountCredentials;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Storage;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-import javax.crypto.spec.SecretKeySpec;
-
-import com.google.cloud.storage.StorageOptions;
-import lombok.RequiredArgsConstructor;
+import com.google.cloud.storage.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import static java.lang.String.format;
+import static java.util.Objects.isNull;
+import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
 @Slf4j
 @Service
@@ -46,7 +34,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Profile({"dev", "hml", "prd"})
 public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
 
-    private Path diretorioBase = Files.createTempDirectory("anexos_");
+    public static final String DIRETORIO_ANEXOS = "anexos_";
+    private Path diretorioBase = Files.createTempDirectory(DIRETORIO_ANEXOS);
 
     private String bucketName;
 
@@ -60,21 +49,21 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         this.bucketName = properties.getBucket();
 
         try {
+            String jsonKey = properties.getJsonKey();
+            ByteArrayInputStream jsonInputStream = new ByteArrayInputStream(jsonKey.getBytes());
 
             this.storage = StorageOptions
                     .newBuilder()
-                    .setCredentials(ServiceAccountCredentials.fromStream(
-                            new FileInputStream(properties.getJsonKey()))) // arquivo json da key do google
+                    .setCredentials(ServiceAccountCredentials.fromStream(jsonInputStream))
                     .build()
                     .getService();
 
-            log.info(String.format("Using %s", this.diretorioBase.toString()));
-            log.info(String.format("Using blob storage: %s", properties.getBucket()));
+            log.info("Usando diretório temporário: {}", this.diretorioBase);
+            log.info("Usando bucket: {}", properties.getBucket());
         } catch (IOException e) {
-            log.error("Não foi possível criar o diretório na pasta temporária: {}", e.getMessage());
+            log.error("Erro ao carregar credenciais ou criar diretório temporário: {}", e.getMessage());
         }
     }
-
     @Override
     public String salvar(final MultipartFile arquivo) {
         final String nomeArquivoFormatado = renomearArquivo(arquivo.getOriginalFilename());
@@ -87,15 +76,12 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
             arquivo.getInputStream().transferTo(outputStream);
             outputStream.flush();
 
-            // upload to dir
-
-
             BlobId blobId = BlobId.of(bucketName, nomeArquivoFormatado);
             BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
 
             Storage.BlobWriteOption precondicao;
 
-            if (Objects.isNull(storage.get(bucketName, nomeArquivoFormatado))) {
+            if (isNull(storage.get(bucketName, nomeArquivoFormatado))) {
                 precondicao = Storage.BlobWriteOption.doesNotExist();
             } else {
                 precondicao = Storage
@@ -113,8 +99,7 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
             return nomeArquivoFormatado;
         } catch (IOException e) {
             log.error("Não foi possível criar o arquivo no diretório: {}", e.getMessage());
-            throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
+            throw new ResponseStatusException(UNPROCESSABLE_ENTITY,
                     "Não foi possível criar o arquivo no diretório: " + e.getMessage());
         }
     }
@@ -125,7 +110,7 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         try {
             Blob blob = storage.get(bucketName, arquivo.getNomeArquivoBlob());
 
-            if (Objects.isNull(blob) || blob.getContent().length == 0) {
+            if (isNull(blob) || blob.getContent().length == 0) {
                 log.error("Arquivo recuperado do blob está vázio ou não existe.");
                 return null;
             }
@@ -144,10 +129,11 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
                     .extensaoArquivo(arquivo.getExtensao())
                     .arquivoInputStream(fileInputStream)
                     .build();
+
         } catch (IOException e) {
             log.error("Não foi possível recuperar o arquivo baixado do blob: {}", e.getMessage());
             throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    UNPROCESSABLE_ENTITY,
                     "Não foi possível recuperar o arquivo baixado do blob: " + e.getMessage());
         }
     }
@@ -166,12 +152,12 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         String nomeArquivoSemExtensao = FilenameUtils.removeExtension(nomeArquivo);
         String extensaoArquivo = FilenameUtils.getExtension(nomeArquivo);
 
-        return String.format("%s_%s.%s", nomeArquivoSemExtensao, UUID.randomUUID(), extensaoArquivo);
+        return format("%s_%s.%s", nomeArquivoSemExtensao, UUID.randomUUID(), extensaoArquivo);
     }
 
     @Override
     public boolean existeArquivo(String nomeArquivo) {
-        return !Objects.isNull(this.storage.get(bucketName, nomeArquivo));
+        return !isNull(this.storage.get(bucketName, nomeArquivo));
     }
 
     @Override
@@ -179,7 +165,7 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
 
         try {
             File zipTemp = this.diretorioBase.resolve(
-                    String.format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
+                    format("zip_temp_%s.zip", Thread.currentThread().getId())).toFile();
 
             ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(zipTemp));
 

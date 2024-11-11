@@ -1,12 +1,12 @@
 package com.example.download_upload_gcp.integration;
 
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 public class ArquivoCriptografia {
 
@@ -14,7 +14,7 @@ public class ArquivoCriptografia {
     }
 
     public static Cipher getCipher(final Integer encryptMode,
-          final SecretKeySpec fileSecretKeySpec) {
+                                   final SecretKeySpec fileSecretKeySpec) {
         try {
             final Cipher aes = Cipher.getInstance("AES/CBC/PKCS5Padding");
             aes.init(encryptMode, fileSecretKeySpec, new IvParameterSpec(new byte[16]));

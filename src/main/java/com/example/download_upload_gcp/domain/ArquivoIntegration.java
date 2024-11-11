@@ -8,7 +8,6 @@ import java.util.List;
 
 public interface ArquivoIntegration {
 
-    // retorna o nome do arquivo salvo na Blob
     String salvar(final MultipartFile arquivo);
 
     ArquivoDetalhesDownloadDto baixar(Arquivo arquivo);
