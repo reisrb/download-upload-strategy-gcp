@@ -26,14 +26,15 @@ public class ArquivoService {
 
     public Arquivo gravarArquivo(
             MultipartFile arquivoRecebido,
-            String tipoArquivo) {
+            String tipoArquivo,
+            String diretorio) {
 
-        String nomeArquivoBlob = arquivoIntegration.salvar(arquivoRecebido);
+        String nomeArquivoBlob = arquivoIntegration.salvar(arquivoRecebido, diretorio);
 
         Arquivo arquivo = new Arquivo();
         arquivo.setNomeOriginal(arquivoRecebido.getOriginalFilename());
         arquivo.setDescricao(tipoArquivo);
-        arquivo.setNomeArquivoBlob(nomeArquivoBlob);
+        arquivo.setNomeArquivoBlob(diretorio + nomeArquivoBlob);
         arquivo.setBlobContainer(BLOB_CONTAINER);
         arquivo.setExtensao(
                 StringUtils.getFilenameExtension(arquivoRecebido.getOriginalFilename()));

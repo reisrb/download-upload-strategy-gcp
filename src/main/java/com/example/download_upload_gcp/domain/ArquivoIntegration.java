@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface ArquivoIntegration {
 
-    String salvar(final MultipartFile arquivo);
+    String salvar(final MultipartFile arquivo, final String diretorio);
 
     ArquivoDetalhesDownloadDto baixar(Arquivo arquivo);
 

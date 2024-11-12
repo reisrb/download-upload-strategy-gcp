@@ -18,7 +18,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
@@ -65,18 +64,23 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
         }
     }
     @Override
-    public String salvar(final MultipartFile arquivo) {
+    public String salvar(final MultipartFile arquivo, final String diretorio) {
         final String nomeArquivoFormatado = renomearArquivo(arquivo.getOriginalFilename());
         final File caminhoArquivo = diretorioBase.resolve(nomeArquivoFormatado).toFile();
 
-        try {
+        if(isNull(diretorio) || diretorio.isBlank()){
+            log.error("Diretório não pode ser vazio ou nulo.");
+            throw new ResponseStatusException(UNPROCESSABLE_ENTITY,
+                    "Diretório não encontrado.");
+        }
 
+        try {
             OutputStream outputStream = new FileOutputStream(caminhoArquivo);
 
             arquivo.getInputStream().transferTo(outputStream);
             outputStream.flush();
 
-            BlobId blobId = BlobId.of(bucketName, nomeArquivoFormatado);
+            BlobId blobId = BlobId.of(bucketName, diretorio + nomeArquivoFormatado);
             BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
 
             Storage.BlobWriteOption precondicao;
@@ -116,11 +120,11 @@ public class ArquivoGenerateBlobIntegration implements ArquivoIntegration {
             }
 
             blob.downloadTo(
-                    this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toAbsolutePath());
+                    this.diretorioBase.resolve(arquivo.getNomeOriginal()).toAbsolutePath());
             FileInputStream fileInputStream =
                     new FileInputStream(
-                            this.diretorioBase.resolve(arquivo.getNomeArquivoBlob()).toFile());
-            removerArquivoTemporario(arquivo.getNomeArquivoBlob());
+                            this.diretorioBase.resolve(arquivo.getNomeOriginal()).toFile());
+            removerArquivoTemporario(arquivo.getNomeOriginal());
 
             return ArquivoDetalhesDownloadDto.builder()
                     .categoria(arquivo.getDescricao())
